@@ -11,7 +11,7 @@ import random
 board = [[' ' for _ in range(3)] for _ in range(3)]
 
 # Types of players
-players_list = ("user", "easy")
+players_list = ("user", "easy", "medium")
 
 
 # Checks whose turn is it
@@ -65,20 +65,159 @@ def game_status():
     return "Draw"
 
 
-# Checks if user coordinates are valid
-def is_valid(user_coords):
-    if len(user_coords) != 2:
-        return False
-    for i in user_coords:
-        if i > 3 or i < 1:
-            return False
-    return True
-
-
 # Checks if cell is occupied
 def is_occupied(coords):
     global board
     return board[coords[0]][coords[1]] != ' '
+
+
+# Virtual class to create different players
+class Player:
+    name = None
+
+    def make_move(self):
+        pass
+
+
+# "user" player
+class User(Player):
+    name = "user"
+
+    # Player's move. Asks for coordinates and changes the cell
+    def make_move(self):
+        coords = self.ask_for_coordinates()
+        change_state(coords)
+
+    # Asks for coordinates and checks them
+    def ask_for_coordinates(self):
+
+        while True:
+            coords_str = input('Enter the coordinates: > ')
+
+            if len(coords_str) != 3:
+                print("You should enter numbers!")
+                continue
+
+            if coords_str[0].isdigit() and coords_str[1] == ' ' and coords_str[2].isdigit():
+                user_coords = [int(coords_str[0]), int(coords_str[2])]
+
+                if self.is_valid(user_coords):
+                    coords = coordinates(user_coords[0], user_coords[1])
+                    if is_occupied(coords):
+                        print("This cell is occupied! Choose another one!")
+                        continue
+
+                    # valid move
+                    return coords
+
+                else:
+                    print("Coordinates should be from 1 to 3!")
+
+            else:
+                print("You should enter numbers!")
+
+    # Checks if user coordinates are valid
+    def is_valid(self, user_coords):
+        if len(user_coords) != 2:
+            return False
+        for i in user_coords:
+            if i > 3 or i < 1:
+                return False
+        return True
+
+
+# "easy" player
+class Easy(Player):
+    name = "easy"
+
+    # Make random move in a free space
+    def random_move(self):
+        while True:
+            coords = [random.randint(0, 2), random.randint(0, 2)]
+            if not is_occupied(coords):
+                change_state(coords)
+                break
+
+    # Easy difficulty move. Just random
+    def make_move(self):
+        self.random_move()
+        print(f"Making move level \"{self.name}\"")
+
+
+# "medium" player
+class Medium(Easy):
+    name = "medium"
+
+    # Medium difficulty move. Block and attack at if two are in row, else make random moves
+    def make_move(self):
+        attack = whose_turn()
+        defend = "X"
+        if attack == "X":
+            defend = "O"
+
+        if two_in_row(attack) is not None:  # Winning
+            change_state(two_in_row(attack))
+        elif two_in_row(defend) is not None:  # Defending from losing
+            change_state(two_in_row(defend))
+        else:
+            super().random_move()
+
+        print(f"Making move level \"{self.name}\"")
+
+
+# Two in a row
+def two_in_row(symbol):
+
+    # Rows
+    for i in range(3):
+        blank = None
+        n_attack = 0
+        for j in range(3):
+            if board[i][j] == symbol:
+                n_attack += 1
+            elif board[i][j] == ' ':
+                blank = [i, j]
+
+        if n_attack == 2 and blank is not None:
+            return blank
+
+    # Columns
+    for j in range(3):
+        blank = None
+        n_attack = 0
+        for i in range(3):
+            if board[i][j] == symbol:
+                n_attack += 1
+            elif board[i][j] == ' ':
+                blank = [i, j]
+
+        if n_attack == 2 and blank is not None:
+            return blank
+
+    # Diagonals
+    blank = None
+    n_attack = 0
+    for i in range(3):
+        if board[i][i] == symbol:
+            n_attack += 1
+        elif board[i][i] == ' ':
+            blank = [i, i]
+
+    if n_attack == 2 and blank is not None:
+        return blank
+
+    blank = None
+    n_attack = 0
+    for i in range(3):
+        if board[i][2-i] == symbol:
+            n_attack += 1
+        elif board[i][2-i] == ' ':
+            blank = [i, 2-i]
+
+    if n_attack == 2 and blank is not None:
+        return blank
+
+    return None
 
 
 # Change state of the one cell
@@ -105,51 +244,6 @@ def print_board():
     print('---------')
 
 
-# Asks for coordinates and checks them
-def ask_for_coordinates():
-
-    while True:
-        coords_str = input('Enter the coordinates: > ')
-
-        if len(coords_str) != 3:
-            print("You should enter numbers!")
-            continue
-
-        if coords_str[0].isdigit() and coords_str[1] == ' ' and coords_str[2].isdigit():
-            user_coords = [int(coords_str[0]), int(coords_str[2])]
-
-            if is_valid(user_coords):
-                coords = coordinates(user_coords[0], user_coords[1])
-                if is_occupied(coords):
-                    print("This cell is occupied! Choose another one!")
-                    continue
-
-                # valid move
-                return coords
-
-            else:
-                print("Coordinates should be from 1 to 3!")
-
-        else:
-            print("You should enter numbers!")
-
-
-# Player's move. Asks for coordinates and changes the cell
-def players_move():
-    coords = ask_for_coordinates()
-    change_state(coords)
-
-
-# Easy difficulty move. Just random
-def easy_move():
-    while True:
-        coords = [random.randint(0, 2), random.randint(0, 2)]
-        if not is_occupied(coords):
-            print("Making move level \"easy\"")
-            change_state(coords)
-            return
-
-
 # Main menu
 def menu():
     while True:
@@ -160,66 +254,41 @@ def menu():
         elif len(commands) == 3:
             if commands[0] == "start":
                 if commands[1] in players_list and commands[2] in players_list:
-                    play(commands[1], commands[2])
+                    player_1 = create_player(commands[1])
+                    player_2 = create_player(commands[2])
+                    play(player_1, player_2)
                 else:
                     print("Bad parameters!")
         else:
             print("Bad parameters!")
 
 
-# Take a turn
-def take_turn(player):
-    if player == "user":
-        players_move()
-    elif player == "easy":
-        easy_move()
-    print_board()
+# Creates a player from name
+def create_player(player_name):
+    if player_name == "user":
+        return User()
+    elif player_name == "easy":
+        return Easy()
+    elif player_name == "medium":
+        return Medium()
 
 
 # Select players p1 (X) and p2 (O), and setup the game for them
-def play(p1, p2):
+def play(p1: Player, p2: Player):
     game_setup("_________")
     print_board()
 
     while game_status() == "Game not finished":
         # P1's turn
-        take_turn(p1)
+        p1.make_move()
+        print_board()
         if game_status() != "Game not finished":
             break
         # P2's turn
-        take_turn(p2)
-
-    print(game_status())
-
-
-def stage1():
-    game_setup(str(input('Enter cells: > ')))
-    print_board()
-    coords = ask_for_coordinates()
-    change_state(coords)
-    print_board()
-    print(game_status())
-
-
-def stage2():
-    game_setup("_________")
-    print_board()
-
-    while game_status() == "Game not finished":
-        # Player's turn
-        players_move()
-        print_board()
-        if game_status() != "Game not finished":
-            break
-        # AI's move
-        easy_move()
+        p2.make_move()
         print_board()
 
     print(game_status())
 
 
-def stage3():
-    menu()
-
-
-stage3()
+menu()
