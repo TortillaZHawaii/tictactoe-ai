@@ -8,14 +8,27 @@ import random
 
 
 class Board:
-    # Generate an empty board
-    b = [[' ' for _ in range(3)] for _ in range(3)]
+    def __init__(self):
+        # Generate an empty board
+        self.b = [[' ' for _ in range(3)] for _ in range(3)]
 
     def __getitem__(self, i, j):
         return self.b[i][j]
 
     def __setitem__(self, i, j, value):
         self.b[i][j] = value
+
+    def copy(self):
+        a = Board()
+        a.game_setup(self.save())
+        return a
+
+    def save(self):
+        save_str = ""
+        for i in range(3):
+            for j in range(3):
+                save_str += self.b[i][j]
+        return save_str
 
     # Checks whose turn is it
     def whose_turn(self):
@@ -64,6 +77,10 @@ class Board:
     # Checks if cell is occupied
     def is_occupied(self, coords):
         return self.b[coords[0]][coords[1]] != ' '
+
+    # Checks if cell is clear
+    def is_blank(self, coords):
+        return self.b[coords[0]][coords[1]] == ' '
 
     # Two in a row
     def two_in_row(self, symbol):
@@ -159,6 +176,16 @@ class Player:
         pass
 
 
+# Checks if user coordinates are valid
+def is_valid(user_coords):
+    if len(user_coords) != 2:
+        return False
+    for i in user_coords:
+        if i > 3 or i < 1:
+            return False
+    return True
+
+
 # "user" player
 class User(Player):
     name = "user"
@@ -181,7 +208,7 @@ class User(Player):
             if coords_str[0].isdigit() and coords_str[1] == ' ' and coords_str[2].isdigit():
                 user_coords = [int(coords_str[0]), int(coords_str[2])]
 
-                if self.is_valid(user_coords):
+                if is_valid(user_coords):
                     coords = coordinates(user_coords[0], user_coords[1])
                     if board.is_occupied(coords):
                         print("This cell is occupied! Choose another one!")
@@ -196,31 +223,23 @@ class User(Player):
             else:
                 print("You should enter numbers!")
 
-    # Checks if user coordinates are valid
-    def is_valid(self, user_coords):
-        if len(user_coords) != 2:
-            return False
-        for i in user_coords:
-            if i > 3 or i < 1:
-                return False
-        return True
+
+# Make random move in a free space
+def random_move():
+    while True:
+        coords = [random.randint(0, 2), random.randint(0, 2)]
+        if not board.is_occupied(coords):
+            board.change_state(coords)
+            break
 
 
 # "easy" player
 class Easy(Player):
     name = "easy"
 
-    # Make random move in a free space
-    def random_move(self):
-        while True:
-            coords = [random.randint(0, 2), random.randint(0, 2)]
-            if not board.is_occupied(coords):
-                board.change_state(coords)
-                break
-
     # Easy difficulty move. Just random
     def make_move(self):
-        self.random_move()
+        random_move()
         print(f"Making move level \"{self.name}\"")
 
 
@@ -240,8 +259,56 @@ class Medium(Easy):
         elif board.two_in_row(defend) is not None:  # Defending from losing
             board.change_state(board.two_in_row(defend))
         else:
-            super().random_move()
+            random_move()
 
+        print(f"Making move level \"{self.name}\"")
+
+
+# "hard" player
+# Uses minimax algorithm to always win or draw
+class Hard(Player):
+    name = "hard"
+    typ = None
+    en_typ = None
+
+    def score(self, b: Board):
+        if b.game_status() == self.typ + " wins":
+            return 10
+        if b.game_status() == self.en_typ + " wins":
+            return -10
+        if b.game_status() == "draw":
+            return 0
+
+        score = 0
+        for i in range(3):
+            for j in range(3):
+                if b.is_blank([i, j]):
+                    b2 = b.copy()
+                    b2.change_state([i, j])
+                    score += self.score(b2)
+        return score
+
+    def make_move(self):
+        if self.typ is None:
+            self.typ = board.whose_turn()
+            self.en_typ = 'X' if self.typ == 'O' else 'O'
+
+        move = None
+        maks = -1000000
+        for i in range(3):
+            for j in range(3):
+                if board.is_blank([i, j]):
+                    b2 = board.copy()
+                    b2.change_state([i, j])
+                    score = self.score(b2)
+                    if score > maks:
+                        maks = score
+                        move = [i, j]
+
+        if move is None:
+            random_move()
+        else:
+            board.change_state(move)
         print(f"Making move level \"{self.name}\"")
 
 
@@ -260,6 +327,8 @@ def menu():
                     play(player_1, player_2)
                 else:
                     print("Bad parameters!")
+            else:
+                print("Bad parameters!")
         else:
             print("Bad parameters!")
 
@@ -272,6 +341,8 @@ def create_player(player_name):
         return Easy()
     elif player_name == "medium":
         return Medium()
+    elif player_name == "hard":
+        return Hard()
 
 
 # Select players p1 (X) and p2 (O), and setup the game for them
