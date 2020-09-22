@@ -7,68 +7,148 @@
 import random
 
 
-# Generate empty board
-board = [[' ' for _ in range(3)] for _ in range(3)]
+class Board:
+    # Generate an empty board
+    b = [[' ' for _ in range(3)] for _ in range(3)]
+
+    def __getitem__(self, i, j):
+        return self.b[i][j]
+
+    def __setitem__(self, i, j, value):
+        self.b[i][j] = value
+
+    # Checks whose turn is it
+    def whose_turn(self):
+        num = 0
+        for i in range(3):
+            for j in range(3):
+                if self.b[i][j] == 'X':
+                    num += 1
+                elif self.b[i][j] == 'O':
+                    num -= 1
+
+        if num > 0:
+            return 'O'
+        return 'X'
+
+    # Returns one of four possible state
+    def game_status(self):
+        # Checks if we have a winner -> "X wins" or "O wins"
+        for i in range(3):
+            # Rows
+            if self.b[i][0] == self.b[i][1] == self.b[i][2] != ' ':
+                return self.b[i][0] + " wins"
+            # Columns
+            if self.b[0][i] == self.b[1][i] == self.b[2][i] != ' ':
+                return self.b[0][i] + " wins"
+
+        # Diagonals
+        if self.b[0][0] == self.b[1][1] == self.b[2][2] != ' ':
+            return self.b[1][1] + " wins"
+        if self.b[0][2] == self.b[1][1] == self.b[2][0] != ' ':
+            return self.b[1][1] + " wins"
+
+        # Checks if there are no empty cells -> "Game not finished"
+        for i in range(3):
+            for j in range(3):
+                if self.b[i][j] == ' ':
+                    break
+            else:
+                continue
+
+            return "Game not finished"
+
+        # Else -> "Draw"
+        return "Draw"
+
+    # Checks if cell is occupied
+    def is_occupied(self, coords):
+        return self.b[coords[0]][coords[1]] != ' '
+
+    # Two in a row
+    def two_in_row(self, symbol):
+
+        # Rows
+        for i in range(3):
+            blank = None
+            n_attack = 0
+            for j in range(3):
+                if self.b[i][j] == symbol:
+                    n_attack += 1
+                elif self.b[i][j] == ' ':
+                    blank = [i, j]
+
+            if n_attack == 2 and blank is not None:
+                return blank
+
+        # Columns
+        for j in range(3):
+            blank = None
+            n_attack = 0
+            for i in range(3):
+                if self.b[i][j] == symbol:
+                    n_attack += 1
+                elif self.b[i][j] == ' ':
+                    blank = [i, j]
+
+            if n_attack == 2 and blank is not None:
+                return blank
+
+        # Diagonals
+        blank = None
+        n_attack = 0
+        for i in range(3):
+            if self.b[i][i] == symbol:
+                n_attack += 1
+            elif self.b[i][i] == ' ':
+                blank = [i, i]
+
+        if n_attack == 2 and blank is not None:
+            return blank
+
+        blank = None
+        n_attack = 0
+        for i in range(3):
+            if self.b[i][2 - i] == symbol:
+                n_attack += 1
+            elif self.b[i][2 - i] == ' ':
+                blank = [i, 2 - i]
+
+        if n_attack == 2 and blank is not None:
+            return blank
+
+        return None
+
+    # Change state of the one cell
+    def change_state(self, coords):
+        self.b[coords[0]][coords[1]] = self.whose_turn()
+
+    # Fill the board with game state from string
+    def game_setup(self, start_str):
+        start_str = start_str.replace('_', ' ')
+        self.b = [[start_str[i * 3 + j] for j in range(3)] for i in range(3)]
+
+    # Prints the board with pretty format
+    def __str__(self):
+        fancy_board = '---------\n'
+        for i in range(3):
+            fancy_board += '| '
+            for j in range(3):
+                fancy_board += self.b[i][j] + ' '
+            fancy_board += '|\n'
+        fancy_board += '---------'
+        return fancy_board
+
+
+board = Board()
 
 # Types of players
-players_list = ("user", "easy", "medium")
-
-
-# Checks whose turn is it
-def whose_turn():
-    num = 0
-    for i in range(3):
-        for j in range(3):
-            if board[i][j] == 'X':
-                num += 1
-            elif board[i][j] == 'O':
-                num -= 1
-
-    if num > 0:
-        return 'O'
-    return 'X'
+players_list = ("user", "easy", "medium", "hard")
 
 
 # Translate from coordinate system used by user to used by program
 def coordinates(i, j):
     return [3 - j, i - 1]
-
-
-# Returns one of four possible state
-def game_status():
-    # Checks if we have a winner -> "X wins" or "O wins"
-    for i in range(3):
-        # Rows
-        if board[i][0] == board[i][1] == board[i][2] != ' ':
-            return board[i][0] + " wins"
-        # Columns
-        if board[0][i] == board[1][i] == board[2][i] != ' ':
-            return board[0][i] + " wins"
-
-    # Diagonals
-    if board[0][0] == board[1][1] == board[2][2] != ' ':
-        return board[1][1] + " wins"
-    if board[0][2] == board[1][1] == board[2][0] != ' ':
-        return board[1][1] + " wins"
-
-    # Checks if there are no empty cells -> "Game not finished"
-    for i in range(3):
-        for j in range(3):
-            if board[i][j] == ' ':
-                break
-        else:
-            continue
-
-        return "Game not finished"
-
-    # Else -> "Draw"
-    return "Draw"
-
-
-# Checks if cell is occupied
-def is_occupied(coords):
-    global board
-    return board[coords[0]][coords[1]] != ' '
 
 
 # Virtual class to create different players
@@ -86,7 +166,7 @@ class User(Player):
     # Player's move. Asks for coordinates and changes the cell
     def make_move(self):
         coords = self.ask_for_coordinates()
-        change_state(coords)
+        board.change_state(coords)
 
     # Asks for coordinates and checks them
     def ask_for_coordinates(self):
@@ -103,7 +183,7 @@ class User(Player):
 
                 if self.is_valid(user_coords):
                     coords = coordinates(user_coords[0], user_coords[1])
-                    if is_occupied(coords):
+                    if board.is_occupied(coords):
                         print("This cell is occupied! Choose another one!")
                         continue
 
@@ -134,8 +214,8 @@ class Easy(Player):
     def random_move(self):
         while True:
             coords = [random.randint(0, 2), random.randint(0, 2)]
-            if not is_occupied(coords):
-                change_state(coords)
+            if not board.is_occupied(coords):
+                board.change_state(coords)
                 break
 
     # Easy difficulty move. Just random
@@ -150,98 +230,19 @@ class Medium(Easy):
 
     # Medium difficulty move. Block and attack at if two are in row, else make random moves
     def make_move(self):
-        attack = whose_turn()
+        attack = board.whose_turn()
         defend = "X"
         if attack == "X":
             defend = "O"
 
-        if two_in_row(attack) is not None:  # Winning
-            change_state(two_in_row(attack))
-        elif two_in_row(defend) is not None:  # Defending from losing
-            change_state(two_in_row(defend))
+        if board.two_in_row(attack) is not None:  # Winning
+            board.change_state(board.two_in_row(attack))
+        elif board.two_in_row(defend) is not None:  # Defending from losing
+            board.change_state(board.two_in_row(defend))
         else:
             super().random_move()
 
         print(f"Making move level \"{self.name}\"")
-
-
-# Two in a row
-def two_in_row(symbol):
-
-    # Rows
-    for i in range(3):
-        blank = None
-        n_attack = 0
-        for j in range(3):
-            if board[i][j] == symbol:
-                n_attack += 1
-            elif board[i][j] == ' ':
-                blank = [i, j]
-
-        if n_attack == 2 and blank is not None:
-            return blank
-
-    # Columns
-    for j in range(3):
-        blank = None
-        n_attack = 0
-        for i in range(3):
-            if board[i][j] == symbol:
-                n_attack += 1
-            elif board[i][j] == ' ':
-                blank = [i, j]
-
-        if n_attack == 2 and blank is not None:
-            return blank
-
-    # Diagonals
-    blank = None
-    n_attack = 0
-    for i in range(3):
-        if board[i][i] == symbol:
-            n_attack += 1
-        elif board[i][i] == ' ':
-            blank = [i, i]
-
-    if n_attack == 2 and blank is not None:
-        return blank
-
-    blank = None
-    n_attack = 0
-    for i in range(3):
-        if board[i][2-i] == symbol:
-            n_attack += 1
-        elif board[i][2-i] == ' ':
-            blank = [i, 2-i]
-
-    if n_attack == 2 and blank is not None:
-        return blank
-
-    return None
-
-
-# Change state of the one cell
-def change_state(coords):
-    global board
-    board[coords[0]][coords[1]] = whose_turn()
-
-
-# Fill the board with game state from string
-def game_setup(start_str):
-    global board
-    start_str = start_str.replace('_', ' ')
-    board = [[start_str[i * 3 + j] for j in range(3)] for i in range(3)]
-
-
-# Prints the board with pretty format
-def print_board():
-    print('---------')
-    for i in range(3):
-        print('|', end=' ')
-        for j in range(3):
-            print(board[i][j], end=' ')
-        print('|')
-    print('---------')
 
 
 # Main menu
@@ -275,20 +276,20 @@ def create_player(player_name):
 
 # Select players p1 (X) and p2 (O), and setup the game for them
 def play(p1: Player, p2: Player):
-    game_setup("_________")
-    print_board()
+    board.game_setup("_________")
+    print(board)
 
-    while game_status() == "Game not finished":
+    while board.game_status() == "Game not finished":
         # P1's turn
         p1.make_move()
-        print_board()
-        if game_status() != "Game not finished":
+        print(board)
+        if board.game_status() != "Game not finished":
             break
         # P2's turn
         p2.make_move()
-        print_board()
+        print(board)
 
-    print(game_status())
+    print(board.game_status())
 
 
 menu()
